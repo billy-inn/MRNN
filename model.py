@@ -124,8 +124,8 @@ class Classifier:
                 if rloss < best_valid_loss:
                     best_valid_loss = rloss
                     best_valid_epoch = step // num_batches_per_epoch
-                if step // num_batches_per_epoch - best_valid_epoch > 3:
-                    break
+                # if step // num_batches_per_epoch - best_valid_epoch > 3:
+                #    break
         return best_valid_epoch, best_valid_loss
 
     def get_score(self, v):
