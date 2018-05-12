@@ -4,6 +4,7 @@ import config
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import ShuffleSplit
+import sys
 
 def transform_label(x):
     tmp = np.zeros(4)
@@ -11,7 +12,7 @@ def transform_label(x):
         tmp[i] = 1.0
     return tmp
 
-def main():
+def main(mode):
     df = pd.read_csv(config.ALL_DATA, sep="\t", names=["text", "label"])
     text = list(df.text)
     labels = np.array(list(df.label.map(transform_label))).astype(np.float32)
@@ -32,13 +33,15 @@ def main():
         "seq_len": config.MAX_DOCUMENT_LENGTH,
         "num_classes": 4,
         # "num_classes": 5,
+        "state_size": 325,
         "pretrained_embedding": embedding.embedding,
         "hparams": {
             "batch_size": 32,
-            "num_epochs": 50,
+            "num_epochs": 200,
             "lr": 0.001,
             "l2_reg_lambda": 0.001,
-        }
+        },
+        "mode": mode,
     }
     m = Classifier(**kwargs)
 
@@ -49,4 +52,7 @@ def main():
     m.fit(train_set, test_set)
 
 if __name__ == "__main__":
-    main()
+    mode = 'mRNN7'
+    if len(sys.argv) > 1 and (sys.argv[1] in ['mRNN7', 'mRNN5', 'RNN']):
+        mode = sys.argv[1]
+    main(mode)

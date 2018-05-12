@@ -8,11 +8,13 @@ from datetime import datetime
 from utils import data_utils
 
 class Model(nn.Module):
-    def __init__(self, seq_len, num_classes, pretrained_embedding, hparams, use_cuda):
+    def __init__(self, seq_len, state_size, num_classes, pretrained_embedding,
+                 hparams, use_cuda, mode):
         super(Model, self).__init__()
         self.seq_len = seq_len
         self.use_cuda = use_cuda
-        self.d = 25
+        self.mode = mode
+        self.d = state_size
 
         vocab_size = pretrained_embedding.shape[0]
         pretrained_embedding = np.hstack([pretrained_embedding, np.ones((vocab_size, 1))])
@@ -39,8 +41,12 @@ class Model(nn.Module):
         a = torch.matmul(x, self.A)
         a = torch.matmul(a.unsqueeze(2), h_prev.unsqueeze(2))
         b = torch.mm(x, self.W) + torch.mm(h_prev, self.V) + self.b
-        h = torch.t(a.squeeze()) + b.squeeze()
-        # h = torch.t(a.squeeze())
+        if self.mode == "mRNN7":
+            h = torch.t(a.squeeze())
+        elif self.mode == "mRNN5":
+            h = torch.t(a.squeeze()) + b
+        else:
+            h = b
         return F.tanh(h)
 
     def forward(self, words, batch_size):
@@ -54,7 +60,7 @@ class Model(nn.Module):
         # return F.log_softmax(logits)
 
 class Classifier:
-    def __init__(self, seq_len, num_classes, pretrained_embedding, hparams):
+    def __init__(self, seq_len, state_size, num_classes, pretrained_embedding, hparams, mode):
         self.num_classes = num_classes
         self.batch_size = hparams["batch_size"]
         self.num_epochs = hparams["num_epochs"]
@@ -62,8 +68,8 @@ class Classifier:
         l2_reg_lambda = hparams["l2_reg_lambda"]
 
         self.use_cuda = torch.cuda.is_available()
-        self.model = Model(
-            seq_len, num_classes, pretrained_embedding, hparams, self.use_cuda)
+        self.model = Model(seq_len, state_size, num_classes, pretrained_embedding,
+            hparams, self.use_cuda, mode)
         self.optimizer = optim.Adam(filter(lambda p: p.requires_grad,
             self.model.parameters()), lr=lr, weight_decay=l2_reg_lambda)
         self.loss_fn = nn.BCELoss()
@@ -72,9 +78,9 @@ class Classifier:
             self.model = self.model.cuda()
 
     def init(self):
-        # init_range = 0.1
-        # for param in self.model.parameters():
-        #    param.data.uniform_(-init_range, init_range)
+        init_range = 1.0
+        for param in self.model.parameters():
+            param.data.uniform_(-init_range, init_range)
 
         def init_weights(model):
             if type(model) in [nn.Linear]:
