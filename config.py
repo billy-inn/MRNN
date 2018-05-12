@@ -11,7 +11,8 @@ LOG_DIR = "%s/log" % ROOT_PATH
 ALL_DATA = "%s/all.tsv" % DATA_PATH
 CLEAN_ALL_DATA = "%s/clean.tsv" % DATA_PATH
 
-EMBEDDING_DATA = "%s/glove.840B.300d.txt" % DATA_PATH
+# EMBEDDING_DATA = "%s/glove.840B.300d.txt" % DATA_PATH
+EMBEDDING_DATA = "%s/GoogleNews-vectors-negative300.bin" % DATA_PATH
 
 # ------------------------ DATA -------------------------
 

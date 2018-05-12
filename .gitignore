@@ -3,3 +3,4 @@ __pycache__/
 *.swp
 utils/__pycache__/
 log/*
+data/glove.840B.300d.txt
