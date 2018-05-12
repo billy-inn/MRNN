@@ -15,6 +15,7 @@ def main():
     df = pd.read_csv(config.ALL_DATA, sep="\t", names=["text", "label"])
     text = list(df.text)
     labels = np.array(list(df.label.map(transform_label))).astype(np.float32)
+    # labels = np.array(df.label)
     embedding = embedding_utils.Embedding(
         config.EMBEDDING_DATA,
         text,
@@ -30,10 +31,11 @@ def main():
     kwargs = {
         "seq_len": config.MAX_DOCUMENT_LENGTH,
         "num_classes": 4,
+        # "num_classes": 5,
         "pretrained_embedding": embedding.embedding,
         "hparams": {
             "batch_size": 32,
-            "num_epochs": 20,
+            "num_epochs": 50,
             "lr": 0.001,
             "l2_reg_lambda": 0.001,
         }

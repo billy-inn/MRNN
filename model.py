@@ -15,6 +15,7 @@ class Model(nn.Module):
         self.d = 25
 
         vocab_size = pretrained_embedding.shape[0]
+        pretrained_embedding = np.hstack([pretrained_embedding, np.ones((vocab_size, 1))])
         embedding_dim = pretrained_embedding.shape[1]
 
         self.embeddings = nn.Embedding(vocab_size, embedding_dim)
@@ -22,25 +23,35 @@ class Model(nn.Module):
         self.embeddings.weight.requires_grad = False
 
         self.A = nn.Parameter(torch.FloatTensor(self.d, embedding_dim, self.d))
+        # self.rnn = nn.RNN(embedding_dim, self.d, batch_first=True)
+        self.W = nn.Parameter(torch.FloatTensor(embedding_dim, self.d))
+        self.V = nn.Parameter(torch.FloatTensor(self.d, self.d))
+        self.b = nn.Parameter(torch.FloatTensor(self.d))
         self.output = nn.Linear(self.d, num_classes)
 
     def init_hidden(self, batch_size):
         h0 = autograd.Variable(torch.zeros(batch_size, self.d))
+        h0[:, -1] = 1.0
+        # h0 = autograd.Variable(torch.zeros(1, batch_size, self.d))
         return h0.cuda() if self.use_cuda else h0
 
     def cell(self, x, h_prev):
-        h = torch.matmul(x, self.A)
-        h = torch.matmul(h.view(self.d, -1, 1, self.d), h_prev.unsqueeze(2))
-        h = F.tanh(torch.t(h.squeeze()))
-        return h
+        a = torch.matmul(x, self.A)
+        a = torch.matmul(a.unsqueeze(2), h_prev.unsqueeze(2))
+        b = torch.mm(x, self.W) + torch.mm(h_prev, self.V) + self.b
+        h = torch.t(a.squeeze()) + b.squeeze()
+        # h = torch.t(a.squeeze())
+        return F.tanh(h)
 
     def forward(self, words, batch_size):
         wrd_embeds = self.embeddings(words)
         h = self.init_hidden(batch_size)
         for i in range(self.seq_len):
             h = self.cell(wrd_embeds[:, i, :], h)
-        logits = self.output(h)
+        # output, h = self.rnn(wrd_embeds, h)
+        logits = self.output(h.squeeze())
         return F.sigmoid(logits)
+        # return F.log_softmax(logits)
 
 class Classifier:
     def __init__(self, seq_len, num_classes, pretrained_embedding, hparams):
@@ -56,10 +67,15 @@ class Classifier:
         self.optimizer = optim.Adam(filter(lambda p: p.requires_grad,
             self.model.parameters()), lr=lr, weight_decay=l2_reg_lambda)
         self.loss_fn = nn.BCELoss()
+        # self.loss_fn = nn.NLLLoss()
         if self.use_cuda:
             self.model = self.model.cuda()
 
     def init(self):
+        # init_range = 0.1
+        # for param in self.model.parameters():
+        #    param.data.uniform_(-init_range, init_range)
+
         def init_weights(model):
             if type(model) in [nn.Linear]:
                 nn.init.xavier_normal(model.weight.data)
@@ -89,6 +105,7 @@ class Classifier:
             labels = self._variable(labels_batch)
 
             probs = self.model(words, batch_size)
+            # print(probs.data.numpy()[0])
             loss = self.loss_fn(probs, labels)
             time_str = datetime.now().isoformat()
             print("{}: step {}, loss {:g}".format(time_str, step, loss.data[0]))
@@ -135,6 +152,7 @@ class Classifier:
             for i in range(batch_size):
                 s1 = self.get_score(probs[i])
                 s2 = self.get_score(labels_batch[i])
-                print(s1, s2)
+                # s1 = np.argmax(probs[i])
+                # s2 = labels_batch[i]
                 total_loss += abs(s1 - s2)
         return total_loss / cnt
